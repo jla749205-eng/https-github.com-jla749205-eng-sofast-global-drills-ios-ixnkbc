@@ -1,6 +1,6 @@
 
 import React, { useState, useRef, useEffect } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, Platform, Alert } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, Platform, Alert, Modal, TextInput } from 'react-native';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import { CameraView, useCameraPermissions, useMicrophonePermissions } from 'expo-camera';
 import { Gyroscope } from 'expo-sensors';
@@ -26,6 +26,9 @@ export default function CameraScreen() {
   const [splits, setSplits] = useState<number[]>([]);
   const [flinchCount, setFlinchCount] = useState(0);
   const [parReached, setParReached] = useState(false);
+  const [showParTimeSelector, setShowParTimeSelector] = useState(false);
+  const [selectedParTime, setSelectedParTime] = useState<number>(drill?.parTime || 0);
+  const [customParTime, setCustomParTime] = useState<string>('');
   
   const cameraRef = useRef<any>(null);
   const timerRef = useRef<NodeJS.Timeout | null>(null);
@@ -38,6 +41,8 @@ export default function CameraScreen() {
   const flinchDetectorRef = useRef(new FlinchDetector());
   const audioAnalyzerRef = useRef(new AudioAnalyzer());
   const parTimerRef = useRef(new ParTimer());
+
+  const parTimeOptions = [0, 5, 10, 15, 20, 30, 45, 60];
 
   useEffect(() => {
     const audioAnalyzer = audioAnalyzerRef.current;
@@ -79,7 +84,6 @@ export default function CameraScreen() {
     try {
       console.log('Setting up sensors for improved shot detection with adaptive thresholds');
       
-      // Setup gyroscope with faster update rate for better recoil detection
       Gyroscope.setUpdateInterval(16);
       
       gyroSubscriptionRef.current = Gyroscope.addListener(gyroscopeData => {
@@ -104,7 +108,6 @@ export default function CameraScreen() {
         }
       });
 
-      // Setup audio analyzer
       try {
         await audioAnalyzerRef.current.startAnalyzing((level) => {
           try {
@@ -206,9 +209,9 @@ export default function CameraScreen() {
       setFlinchCount(0);
       
       try {
-        await parTimerRef.current.playStartBeep();
+        await parTimerRef.current.playStartAlarm();
       } catch (error) {
-        console.error('Error playing start beep:', error);
+        console.error('Error playing start alarm:', error);
       }
       
       try {
@@ -223,9 +226,9 @@ export default function CameraScreen() {
       
       await setupSensors();
       
-      if (drill?.parTime) {
+      if (selectedParTime > 0) {
         try {
-          parTimerRef.current.startParTimer(drill.parTime, () => {
+          parTimerRef.current.startParTimer(selectedParTime, () => {
             setParReached(true);
             console.log('Par time reached!');
           });
@@ -303,6 +306,23 @@ export default function CameraScreen() {
     }
   };
 
+  const handleSetParTime = () => {
+    setShowParTimeSelector(false);
+    console.log(`Par time set to ${selectedParTime} seconds`);
+  };
+
+  const handleCustomParTime = () => {
+    const customTime = parseInt(customParTime, 10);
+    if (!isNaN(customTime) && customTime > 0) {
+      setSelectedParTime(customTime);
+      setCustomParTime('');
+      setShowParTimeSelector(false);
+      console.log(`Custom par time set to ${customTime} seconds`);
+    } else {
+      Alert.alert('Invalid Time', 'Please enter a valid number of seconds');
+    }
+  };
+
   if (!cameraPermission || !micPermission) {
     return (
       <View style={styles.container}>
@@ -348,6 +368,8 @@ export default function CameraScreen() {
       </View>
     );
   }
+
+  const parTimeDisplay = selectedParTime > 0 ? `${selectedParTime}s` : 'None';
 
   return (
     <View style={styles.container}>
@@ -397,14 +419,14 @@ export default function CameraScreen() {
               <Text style={styles.statLabel}>SHOTS</Text>
               <Text style={styles.statValue}>{shotCount}/{drill?.rounds}</Text>
             </View>
-            {drill?.parTime && (
+            {selectedParTime > 0 && (
               <View style={styles.statBox}>
                 <Text style={styles.statLabel}>PAR</Text>
                 <Text style={[
                   styles.statValue,
                   parReached && styles.overPar
                 ]}>
-                  {drill.parTime}s
+                  {selectedParTime}s
                 </Text>
               </View>
             )}
@@ -456,19 +478,124 @@ export default function CameraScreen() {
         </View>
 
         {!isRecording && countdown === null && (
-          <View style={styles.instructionsOverlay}>
-            <IconSymbol
-              ios_icon_name="info.circle.fill"
-              android_material_icon_name="info"
-              size={24}
-              color={colors.primary}
-            />
-            <Text style={styles.instructionText}>
-              Prop your phone on a stable surface with a clear view of the target area. AI will detect shots via audio and recoil.
-            </Text>
-          </View>
+          <>
+            <View style={styles.instructionsOverlay}>
+              <IconSymbol
+                ios_icon_name="info.circle.fill"
+                android_material_icon_name="info"
+                size={24}
+                color={colors.primary}
+              />
+              <Text style={styles.instructionText}>
+                Prop your phone on a stable surface with a clear view of the target area. AI will detect shots via audio and recoil.
+              </Text>
+            </View>
+
+            <TouchableOpacity
+              style={styles.parTimeButton}
+              onPress={() => setShowParTimeSelector(true)}
+              activeOpacity={0.8}
+            >
+              <IconSymbol
+                ios_icon_name="timer"
+                android_material_icon_name="timer"
+                size={20}
+                color={colors.primary}
+              />
+              <Text style={styles.parTimeButtonText}>Par Time: {parTimeDisplay}</Text>
+            </TouchableOpacity>
+          </>
         )}
       </CameraView>
+
+      {/* Par Time Selector Modal */}
+      <Modal
+        visible={showParTimeSelector}
+        transparent
+        animationType="slide"
+        onRequestClose={() => setShowParTimeSelector(false)}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalContent}>
+            <View style={styles.modalHeader}>
+              <Text style={styles.modalTitle}>Set Par Time</Text>
+              <TouchableOpacity
+                onPress={() => setShowParTimeSelector(false)}
+                style={styles.modalCloseButton}
+              >
+                <IconSymbol
+                  ios_icon_name="xmark"
+                  android_material_icon_name="close"
+                  size={24}
+                  color={colors.text}
+                />
+              </TouchableOpacity>
+            </View>
+
+            <View style={styles.modalBody}>
+              <Text style={styles.modalDescription}>
+                Set a par time limit for this drill. A smoke detector alarm will sound at the start and when time expires.
+              </Text>
+
+              <View style={styles.parTimeOptions}>
+                {parTimeOptions.map((time) => {
+                  const timeLabel = time === 0 ? 'None' : `${time}s`;
+                  const isSelected = selectedParTime === time;
+                  return (
+                    <TouchableOpacity
+                      key={time}
+                      style={[
+                        styles.parTimeOption,
+                        isSelected && styles.parTimeOptionSelected
+                      ]}
+                      onPress={() => setSelectedParTime(time)}
+                      activeOpacity={0.7}
+                    >
+                      <Text style={[
+                        styles.parTimeOptionText,
+                        isSelected && styles.parTimeOptionTextSelected
+                      ]}>
+                        {timeLabel}
+                      </Text>
+                    </TouchableOpacity>
+                  );
+                })}
+              </View>
+
+              <View style={styles.customParTimeContainer}>
+                <Text style={styles.customParTimeLabel}>Custom Time (seconds):</Text>
+                <View style={styles.customParTimeInput}>
+                  <TextInput
+                    style={styles.customParTimeTextInput}
+                    placeholder="Enter seconds"
+                    placeholderTextColor={colors.textSecondary}
+                    keyboardType="number-pad"
+                    value={customParTime}
+                    onChangeText={setCustomParTime}
+                  />
+                  <TouchableOpacity
+                    style={styles.customParTimeButton}
+                    onPress={handleCustomParTime}
+                    activeOpacity={0.7}
+                  >
+                    <Text style={styles.customParTimeButtonText}>Set</Text>
+                  </TouchableOpacity>
+                </View>
+              </View>
+            </View>
+
+            <View style={styles.modalActions}>
+              <TouchableOpacity
+                style={styles.modalButtonPrimary}
+                onPress={handleSetParTime}
+                activeOpacity={0.8}
+              >
+                <Text style={styles.modalButtonPrimaryText}>Confirm</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
     </View>
   );
 }
@@ -624,7 +751,7 @@ const styles = StyleSheet.create({
   },
   instructionsOverlay: {
     position: 'absolute',
-    bottom: 140,
+    bottom: 200,
     left: 16,
     right: 16,
     backgroundColor: 'rgba(30, 41, 59, 0.95)',
@@ -641,6 +768,25 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: colors.text,
     lineHeight: 20,
+  },
+  parTimeButton: {
+    position: 'absolute',
+    bottom: 140,
+    alignSelf: 'center',
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: 'rgba(30, 41, 59, 0.95)',
+    paddingHorizontal: 20,
+    paddingVertical: 12,
+    borderRadius: 24,
+    borderWidth: 2,
+    borderColor: colors.primary,
+    gap: 8,
+  },
+  parTimeButtonText: {
+    fontSize: 16,
+    fontWeight: '700',
+    color: colors.primary,
   },
   text: {
     fontSize: 16,
@@ -687,5 +833,124 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: '600',
     color: colors.textSecondary,
+  },
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.7)',
+    justifyContent: 'flex-end',
+  },
+  modalContent: {
+    backgroundColor: colors.card,
+    borderTopLeftRadius: 24,
+    borderTopRightRadius: 24,
+    maxHeight: '80%',
+  },
+  modalHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    padding: 20,
+    borderBottomWidth: 1,
+    borderBottomColor: colors.secondary,
+  },
+  modalTitle: {
+    fontSize: 20,
+    fontWeight: '700',
+    color: colors.text,
+  },
+  modalCloseButton: {
+    width: 40,
+    height: 40,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  modalBody: {
+    padding: 20,
+  },
+  modalDescription: {
+    fontSize: 14,
+    color: colors.textSecondary,
+    lineHeight: 20,
+    marginBottom: 20,
+  },
+  parTimeOptions: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 12,
+    marginBottom: 24,
+  },
+  parTimeOption: {
+    paddingHorizontal: 20,
+    paddingVertical: 12,
+    borderRadius: 12,
+    backgroundColor: colors.background,
+    borderWidth: 2,
+    borderColor: colors.secondary,
+    minWidth: 80,
+    alignItems: 'center',
+  },
+  parTimeOptionSelected: {
+    backgroundColor: colors.primary,
+    borderColor: colors.primary,
+  },
+  parTimeOptionText: {
+    fontSize: 16,
+    fontWeight: '700',
+    color: colors.text,
+  },
+  parTimeOptionTextSelected: {
+    color: colors.background,
+  },
+  customParTimeContainer: {
+    marginTop: 8,
+  },
+  customParTimeLabel: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: colors.text,
+    marginBottom: 8,
+  },
+  customParTimeInput: {
+    flexDirection: 'row',
+    gap: 8,
+  },
+  customParTimeTextInput: {
+    flex: 1,
+    backgroundColor: colors.background,
+    borderWidth: 2,
+    borderColor: colors.secondary,
+    borderRadius: 12,
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    fontSize: 16,
+    color: colors.text,
+  },
+  customParTimeButton: {
+    backgroundColor: colors.primary,
+    paddingHorizontal: 24,
+    paddingVertical: 12,
+    borderRadius: 12,
+    justifyContent: 'center',
+  },
+  customParTimeButtonText: {
+    fontSize: 16,
+    fontWeight: '700',
+    color: colors.background,
+  },
+  modalActions: {
+    padding: 20,
+    borderTopWidth: 1,
+    borderTopColor: colors.secondary,
+  },
+  modalButtonPrimary: {
+    backgroundColor: colors.primary,
+    paddingVertical: 16,
+    borderRadius: 12,
+    alignItems: 'center',
+  },
+  modalButtonPrimaryText: {
+    fontSize: 16,
+    fontWeight: '700',
+    color: colors.background,
   },
 });

@@ -1,6 +1,6 @@
 
 import React, { useState, useRef } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, Platform, Alert, Image, ActivityIndicator, Modal, ScrollView } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, Platform, Alert, Image, ActivityIndicator, Modal, ScrollView, GestureResponderEvent } from 'react-native';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import { CameraView, useCameraPermissions } from 'expo-camera';
 import * as ImagePicker from 'expo-image-picker';
@@ -8,6 +8,12 @@ import { colors } from '@/styles/commonStyles';
 import { getDrillById } from '@/data/drills';
 import { IconSymbol } from '@/components/IconSymbol';
 import { TargetAnalyzer, PhotoQualityIssue } from '@/services/targetAnalyzer';
+
+interface ManualShotPlacement {
+  x: number;
+  y: number;
+  shotNumber: number;
+}
 
 export default function TargetPhotoScreen() {
   const router = useRouter();
@@ -29,7 +35,12 @@ export default function TargetPhotoScreen() {
   const [validationType, setValidationType] = useState<'quality' | 'unrecognizable' | 'not-approved' | null>(null);
   const [qualityIssues, setQualityIssues] = useState<PhotoQualityIssue[]>([]);
   const [recommendations, setRecommendations] = useState<string[]>([]);
+  const [showManualPlacement, setShowManualPlacement] = useState(false);
+  const [manualPlacements, setManualPlacements] = useState<ManualShotPlacement[]>([]);
+  const [imageLayout, setImageLayout] = useState<{ width: number; height: number } | null>(null);
   const cameraRef = useRef<any>(null);
+
+  const expectedShots = parseInt(shots || '0', 10);
 
   const handleTakePhoto = async () => {
     try {
@@ -77,6 +88,9 @@ export default function TargetPhotoScreen() {
     setValidationType(null);
     setQualityIssues([]);
     setRecommendations([]);
+    setShowManualPlacement(false);
+    setManualPlacements([]);
+    setImageLayout(null);
   };
 
   const getIssueIcon = (type: string) => {
@@ -131,7 +145,6 @@ export default function TargetPhotoScreen() {
 
       console.log('Analysis complete:', analysis);
       
-      // Check if there are photo quality issues
       if (analysis.photoQuality && !analysis.photoQuality.isGoodQuality) {
         setValidationType('quality');
         setQualityIssues(analysis.photoQuality.issues);
@@ -148,7 +161,6 @@ export default function TargetPhotoScreen() {
         return;
       }
       
-      // Check if the target is unrecognizable
       if (!analysis.isRecognizable) {
         setValidationType('unrecognizable');
         setValidationMessage(
@@ -160,7 +172,6 @@ export default function TargetPhotoScreen() {
         return;
       }
       
-      // Check if the target is not an approved USPSA/IDPA target
       if (!analysis.isApprovedTarget) {
         setValidationType('not-approved');
         setValidationMessage(
@@ -172,7 +183,6 @@ export default function TargetPhotoScreen() {
         return;
       }
       
-      // Target is valid, navigate to results with analysis data
       router.push({
         pathname: '/results/[id]',
         params: {
@@ -186,22 +196,72 @@ export default function TargetPhotoScreen() {
       });
     } catch (error) {
       console.error('Error analyzing target:', error);
-      Alert.alert('Error', 'Failed to analyze target. Continuing without accuracy data.');
-      
-      // Continue to results without analysis
-      router.push({
-        pathname: '/results/[id]',
-        params: {
-          id: drill?.id || '',
-          time,
-          shots,
-          splits,
-          flinches,
-        }
-      });
+      Alert.alert(
+        'Analysis Failed',
+        'Could not automatically detect shot placements. Would you like to manually mark them?',
+        [
+          { text: 'Cancel', style: 'cancel' },
+          { 
+            text: 'Mark Manually', 
+            onPress: () => {
+              setShowValidationModal(false);
+              setShowManualPlacement(true);
+            }
+          }
+        ]
+      );
     } finally {
       setIsAnalyzing(false);
     }
+  };
+
+  const handleManualShotPlacement = (event: GestureResponderEvent) => {
+    if (!imageLayout) return;
+
+    const { locationX, locationY } = event.nativeEvent;
+    const shotNumber = manualPlacements.length + 1;
+
+    if (shotNumber <= expectedShots) {
+      const newPlacement: ManualShotPlacement = {
+        x: locationX,
+        y: locationY,
+        shotNumber,
+      };
+      
+      setManualPlacements(prev => [...prev, newPlacement]);
+      console.log(`Manual shot ${shotNumber} placed at (${locationX.toFixed(0)}, ${locationY.toFixed(0)})`);
+    }
+  };
+
+  const handleConfirmManualPlacements = () => {
+    if (manualPlacements.length < expectedShots) {
+      Alert.alert(
+        'Incomplete',
+        `Please mark all ${expectedShots} shot placements. Currently marked: ${manualPlacements.length}`,
+        [{ text: 'OK' }]
+      );
+      return;
+    }
+
+    console.log('Manual placements confirmed:', manualPlacements);
+    
+    router.push({
+      pathname: '/results/[id]',
+      params: {
+        id: drill?.id || '',
+        time,
+        shots,
+        splits,
+        flinches,
+        manualPlacements: JSON.stringify(manualPlacements),
+      }
+    });
+  };
+
+  const handleCancelManualPlacement = () => {
+    setShowManualPlacement(false);
+    setManualPlacements([]);
+    setImageLayout(null);
   };
 
   const handleContinueWithoutValidTarget = () => {
@@ -297,9 +357,10 @@ export default function TargetPhotoScreen() {
     );
   }
 
+  const placementsRemaining = expectedShots - manualPlacements.length;
+
   return (
     <View style={styles.container}>
-      {/* Header */}
       <View style={styles.header}>
         <TouchableOpacity
           style={styles.backButton}
@@ -321,57 +382,97 @@ export default function TargetPhotoScreen() {
         </TouchableOpacity>
       </View>
 
-      {/* Instructions */}
-      <View style={styles.instructionsContainer}>
-        <Text style={styles.instructionsTitle}>Photograph Your Target</Text>
-        <Text style={styles.instructionsText}>
-          Take a clear photo of your target for AI-powered accuracy verification. Ensure the entire target is visible and well-lit.
-        </Text>
-        
-        {/* Target Type Selector */}
-        <View style={styles.targetTypeContainer}>
-          <Text style={styles.targetTypeLabel}>Target Type:</Text>
-          <View style={styles.targetTypeButtons}>
-            <TouchableOpacity
-              style={[
-                styles.targetTypeButton,
-                targetType === 'USPSA' && styles.targetTypeButtonActive
-              ]}
-              onPress={() => setTargetType('USPSA')}
-            >
-              <Text style={[
-                styles.targetTypeButtonText,
-                targetType === 'USPSA' && styles.targetTypeButtonTextActive
-              ]}>
-                USPSA
-              </Text>
-            </TouchableOpacity>
-            <TouchableOpacity
-              style={[
-                styles.targetTypeButton,
-                targetType === 'IDPA' && styles.targetTypeButtonActive
-              ]}
-              onPress={() => setTargetType('IDPA')}
-            >
-              <Text style={[
-                styles.targetTypeButtonText,
-                targetType === 'IDPA' && styles.targetTypeButtonTextActive
-              ]}>
-                IDPA
-              </Text>
-            </TouchableOpacity>
+      {!showManualPlacement && (
+        <View style={styles.instructionsContainer}>
+          <Text style={styles.instructionsTitle}>Photograph Your Target</Text>
+          <Text style={styles.instructionsText}>
+            Take a clear photo of your target for AI-powered accuracy verification. Ensure the entire target is visible and well-lit.
+          </Text>
+          
+          <View style={styles.targetTypeContainer}>
+            <Text style={styles.targetTypeLabel}>Target Type:</Text>
+            <View style={styles.targetTypeButtons}>
+              <TouchableOpacity
+                style={[
+                  styles.targetTypeButton,
+                  targetType === 'USPSA' && styles.targetTypeButtonActive
+                ]}
+                onPress={() => setTargetType('USPSA')}
+              >
+                <Text style={[
+                  styles.targetTypeButtonText,
+                  targetType === 'USPSA' && styles.targetTypeButtonTextActive
+                ]}>
+                  USPSA
+                </Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={[
+                  styles.targetTypeButton,
+                  targetType === 'IDPA' && styles.targetTypeButtonActive
+                ]}
+                onPress={() => setTargetType('IDPA')}
+              >
+                <Text style={[
+                  styles.targetTypeButtonText,
+                  targetType === 'IDPA' && styles.targetTypeButtonTextActive
+                ]}>
+                  IDPA
+                </Text>
+              </TouchableOpacity>
+            </View>
           </View>
         </View>
-      </View>
+      )}
 
-      {/* Camera or Preview */}
+      {showManualPlacement && (
+        <View style={styles.manualPlacementHeader}>
+          <IconSymbol
+            ios_icon_name="hand.tap.fill"
+            android_material_icon_name="touch_app"
+            size={24}
+            color={colors.primary}
+          />
+          <View style={styles.manualPlacementHeaderText}>
+            <Text style={styles.manualPlacementTitle}>Tap to Mark Shot Placements</Text>
+            <Text style={styles.manualPlacementSubtitle}>
+              {placementsRemaining} shot{placementsRemaining !== 1 ? 's' : ''} remaining
+            </Text>
+          </View>
+        </View>
+      )}
+
       <View style={styles.cameraContainer}>
         {capturedImage ? (
-          <Image
-            source={{ uri: capturedImage }}
-            style={styles.preview}
-            resizeMode="contain"
-          />
+          <TouchableOpacity
+            activeOpacity={showManualPlacement ? 0.9 : 1}
+            onPress={showManualPlacement ? handleManualShotPlacement : undefined}
+            disabled={!showManualPlacement}
+          >
+            <Image
+              source={{ uri: capturedImage }}
+              style={styles.preview}
+              resizeMode="contain"
+              onLayout={(event) => {
+                const { width, height } = event.nativeEvent.layout;
+                setImageLayout({ width, height });
+              }}
+            />
+            {showManualPlacement && manualPlacements.map((placement, index) => (
+              <View
+                key={index}
+                style={[
+                  styles.shotMarker,
+                  {
+                    left: placement.x - 15,
+                    top: placement.y - 15,
+                  }
+                ]}
+              >
+                <Text style={styles.shotMarkerText}>{placement.shotNumber}</Text>
+              </View>
+            ))}
+          </TouchableOpacity>
         ) : (
           <CameraView
             ref={cameraRef}
@@ -388,9 +489,42 @@ export default function TargetPhotoScreen() {
         )}
       </View>
 
-      {/* Controls */}
       <View style={styles.controls}>
-        {capturedImage ? (
+        {showManualPlacement ? (
+          <>
+            <TouchableOpacity
+              style={styles.cancelButton}
+              onPress={handleCancelManualPlacement}
+              activeOpacity={0.8}
+            >
+              <IconSymbol
+                ios_icon_name="xmark"
+                android_material_icon_name="close"
+                size={20}
+                color={colors.text}
+              />
+              <Text style={styles.cancelButtonText}>Cancel</Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              style={[
+                styles.confirmButton,
+                manualPlacements.length < expectedShots && styles.confirmButtonDisabled
+              ]}
+              onPress={handleConfirmManualPlacements}
+              disabled={manualPlacements.length < expectedShots}
+              activeOpacity={0.8}
+            >
+              <IconSymbol
+                ios_icon_name="checkmark.circle.fill"
+                android_material_icon_name="check_circle"
+                size={20}
+                color={colors.background}
+              />
+              <Text style={styles.confirmButtonText}>Confirm ({manualPlacements.length}/{expectedShots})</Text>
+            </TouchableOpacity>
+          </>
+        ) : capturedImage ? (
           <>
             <TouchableOpacity
               style={styles.retakeButton}
@@ -458,7 +592,6 @@ export default function TargetPhotoScreen() {
         )}
       </View>
 
-      {/* Validation Modal */}
       <Modal
         visible={showValidationModal}
         transparent
@@ -496,7 +629,6 @@ export default function TargetPhotoScreen() {
             <ScrollView style={styles.modalBody}>
               <Text style={styles.modalMessage}>{validationMessage}</Text>
               
-              {/* Quality Issues Section */}
               {validationType === 'quality' && qualityIssues.length > 0 && (
                 <View style={styles.issuesContainer}>
                   <Text style={styles.issuesTitle}>Detected Issues:</Text>
@@ -525,7 +657,6 @@ export default function TargetPhotoScreen() {
                 </View>
               )}
               
-              {/* Recommendations Section */}
               {recommendations.length > 0 && (
                 <View style={styles.recommendationBox}>
                   <View style={styles.recommendationHeader}>
@@ -546,7 +677,6 @@ export default function TargetPhotoScreen() {
                 </View>
               )}
               
-              {/* Target Recommendations for Non-Approved */}
               {validationType === 'not-approved' && (
                 <View style={styles.recommendationBox}>
                   <Text style={styles.recommendationTitle}>Recommended Targets:</Text>
@@ -687,6 +817,28 @@ const styles = StyleSheet.create({
   targetTypeButtonTextActive: {
     color: colors.background,
   },
+  manualPlacementHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    padding: 16,
+    backgroundColor: colors.card,
+    borderBottomWidth: 1,
+    borderBottomColor: colors.secondary,
+    gap: 12,
+  },
+  manualPlacementHeaderText: {
+    flex: 1,
+  },
+  manualPlacementTitle: {
+    fontSize: 16,
+    fontWeight: '700',
+    color: colors.text,
+  },
+  manualPlacementSubtitle: {
+    fontSize: 14,
+    color: colors.textSecondary,
+    marginTop: 2,
+  },
   cameraContainer: {
     flex: 1,
     backgroundColor: colors.background,
@@ -695,7 +847,7 @@ const styles = StyleSheet.create({
   },
   camera: {
     width: '100%',
-    aspectRatio: 3 / 4, // Rectangular aspect ratio (portrait)
+    aspectRatio: 3 / 4,
   },
   targetGuide: {
     position: 'absolute',
@@ -739,8 +891,24 @@ const styles = StyleSheet.create({
   },
   preview: {
     width: '100%',
-    aspectRatio: 3 / 4, // Match camera aspect ratio
+    aspectRatio: 3 / 4,
     backgroundColor: colors.background,
+  },
+  shotMarker: {
+    position: 'absolute',
+    width: 30,
+    height: 30,
+    borderRadius: 15,
+    backgroundColor: colors.primary,
+    borderWidth: 2,
+    borderColor: colors.text,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  shotMarkerText: {
+    fontSize: 14,
+    fontWeight: '900',
+    color: colors.background,
   },
   controls: {
     flexDirection: 'row',
@@ -810,6 +978,42 @@ const styles = StyleSheet.create({
     opacity: 0.6,
   },
   analyzeButtonText: {
+    fontSize: 16,
+    fontWeight: '800',
+    color: colors.background,
+  },
+  cancelButton: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 16,
+    borderRadius: 12,
+    backgroundColor: colors.background,
+    borderWidth: 1,
+    borderColor: colors.secondary,
+    gap: 8,
+    marginRight: 8,
+  },
+  cancelButtonText: {
+    fontSize: 16,
+    fontWeight: '700',
+    color: colors.text,
+  },
+  confirmButton: {
+    flex: 2,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 16,
+    borderRadius: 12,
+    backgroundColor: colors.primary,
+    gap: 8,
+  },
+  confirmButtonDisabled: {
+    opacity: 0.4,
+  },
+  confirmButtonText: {
     fontSize: 16,
     fontWeight: '800',
     color: colors.background,
