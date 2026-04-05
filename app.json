@@ -78,9 +78,9 @@
       "eas": {
         "projectId": "YOUR_EAS_PROJECT_ID"
       },
-      "privacyPolicyUrl": "https://tmsofast.com/privacy",
-      "websiteUrl": "https://tmsofast.com",
-      "supportUrl": "https://tmsofast.com/support"
+      "privacyPolicyUrl": "https://www.tmsofast.com/privacy",
+      "websiteUrl": "https://www.tmsofast.com",
+      "supportUrl": "https://www.tmsofast.com"
     }
   },
   "scheme": "SOFAST Global Drills"

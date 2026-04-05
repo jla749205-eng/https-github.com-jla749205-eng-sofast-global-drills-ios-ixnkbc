@@ -100,7 +100,7 @@ export default function RankingsScreen() {
     } finally {
       setIsLoading(false);
     }
-  }, [selectedDrill, selectedDivision]);
+  }, [selectedDivision]);
 
   useEffect(() => {
     if (viewMode === 'global') {
