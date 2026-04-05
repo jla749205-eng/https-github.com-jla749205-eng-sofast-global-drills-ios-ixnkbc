@@ -7,23 +7,56 @@
     "icon": "./assets/images/7cadd481-5bea-470d-802a-1f44d5a96178.jpeg",
     "userInterfaceStyle": "automatic",
     "newArchEnabled": true,
+    "platforms": ["ios"],
     "splash": {
       "image": "./assets/images/7cadd481-5bea-470d-802a-1f44d5a96178.jpeg",
       "resizeMode": "contain",
       "backgroundColor": "#2D4A2B"
     },
     "ios": {
-      "supportsTablet": true,
+      "supportsTablet": false,
+      "requireFullScreen": true,
       "bundleIdentifier": "com.teamsofast.sofastglobal",
       "buildNumber": "1",
       "infoPlist": {
         "ITSAppUsesNonExemptEncryption": false,
-        "NSCameraUsageDescription": "SOFAST Global needs camera access to record your shooting drills and analyze your performance.",
-        "NSMicrophoneUsageDescription": "SOFAST Global needs microphone access to detect shots and provide accurate timing.",
-        "NSMotionUsageDescription": "SOFAST Global uses motion sensors to detect recoil and analyze your shooting form."
+        "UIRequiresFullScreen": true,
+        "NSCameraUsageDescription": "SOFAST uses the camera to photograph your target and analyze bullet holes.",
+        "NSMicrophoneUsageDescription": "SOFAST uses the microphone to detect gunshots for automatic shot timing.",
+        "NSMotionUsageDescription": "SOFAST uses motion sensors to help detect shot recoil.",
+        "NSPhotoLibraryUsageDescription": "SOFAST saves target photos to your photo library.",
+        "NSPhotoLibraryAddUsageDescription": "SOFAST saves target photos to your photo library."
       },
       "entitlements": {
         "com.apple.developer.game-center": true
+      },
+      "privacyManifests": {
+        "NSPrivacyAccessedAPITypes": [
+          {
+            "NSPrivacyAccessedAPIType": "NSPrivacyAccessedAPICategoryUserDefaults",
+            "NSPrivacyAccessedAPITypeReasons": ["CA92.1"]
+          },
+          {
+            "NSPrivacyAccessedAPIType": "NSPrivacyAccessedAPICategoryFileTimestamp",
+            "NSPrivacyAccessedAPITypeReasons": ["C617.1"]
+          }
+        ],
+        "NSPrivacyCollectedDataTypes": [
+          {
+            "NSPrivacyCollectedDataType": "NSPrivacyCollectedDataTypeAudioData",
+            "NSPrivacyCollectedDataTypeLinked": false,
+            "NSPrivacyCollectedDataTypeTracking": false,
+            "NSPrivacyCollectedDataTypePurposes": ["NSPrivacyCollectedDataTypePurposeAppFunctionality"]
+          },
+          {
+            "NSPrivacyCollectedDataType": "NSPrivacyCollectedDataTypePhotosorVideos",
+            "NSPrivacyCollectedDataTypeLinked": false,
+            "NSPrivacyCollectedDataTypeTracking": false,
+            "NSPrivacyCollectedDataTypePurposes": ["NSPrivacyCollectedDataTypePurposeAppFunctionality"]
+          }
+        ],
+        "NSPrivacyTracking": false,
+        "NSPrivacyTrackingDomains": []
       }
     },
     "android": {
@@ -51,21 +84,21 @@
       [
         "expo-camera",
         {
-          "cameraPermission": "SOFAST Global needs camera access to record your shooting drills and analyze your performance.",
-          "microphonePermission": "SOFAST Global needs microphone access to detect shots and provide accurate timing.",
+          "cameraPermission": "SOFAST uses the camera to photograph your target and analyze bullet holes.",
+          "microphonePermission": "SOFAST uses the microphone to detect gunshots for automatic shot timing.",
           "recordAudioAndroid": true
         }
       ],
       [
         "expo-audio",
         {
-          "microphonePermission": "SOFAST Global needs microphone access to detect shots and provide accurate timing."
+          "microphonePermission": "SOFAST uses the microphone to detect gunshots for automatic shot timing."
         }
       ],
       [
         "expo-sensors",
         {
-          "motionPermission": "SOFAST Global uses motion sensors to detect recoil and analyze your shooting form."
+          "motionPermission": "SOFAST uses motion sensors to help detect shot recoil."
         }
       ]
     ],
