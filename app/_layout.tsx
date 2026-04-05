@@ -94,6 +94,62 @@ export default function RootLayout() {
               {/* Main app with tabs */}
               <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
 
+              {/* Drill flow screens */}
+              <Stack.Screen
+                name="drill/[id]"
+                options={{ headerShown: false }}
+              />
+              <Stack.Screen
+                name="camera/[id]"
+                options={{ headerShown: false }}
+              />
+              <Stack.Screen
+                name="target-photo/[id]"
+                options={{ headerShown: false }}
+              />
+              <Stack.Screen
+                name="results/[id]"
+                options={{ headerShown: false }}
+              />
+              <Stack.Screen
+                name="leaderboard/[id]"
+                options={{ headerShown: false }}
+              />
+              <Stack.Screen
+                name="rankings/index"
+                options={{ headerShown: false }}
+              />
+
+              {/* Info screens */}
+              <Stack.Screen
+                name="status"
+                options={{ headerShown: false }}
+              />
+              <Stack.Screen
+                name="help-guide"
+                options={{ headerShown: false }}
+              />
+              <Stack.Screen
+                name="launch-guide"
+                options={{ headerShown: false }}
+              />
+              <Stack.Screen
+                name="credentials"
+                options={{
+                  title: "My Credentials",
+                  headerStyle: { backgroundColor: "rgb(28, 28, 30)" },
+                  headerTintColor: "rgb(255, 255, 255)",
+                }}
+              />
+              <Stack.Screen
+                name="submission-guide"
+                options={{
+                  title: "Policies & Support",
+                  headerStyle: { backgroundColor: "rgb(28, 28, 30)" },
+                  headerTintColor: "rgb(255, 255, 255)",
+                }}
+              />
+
               {/* Modal Demo Screens */}
               <Stack.Screen
                 name="modal"

@@ -1,6 +1,7 @@
 
 import React, { useState } from 'react';
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Alert, Clipboard } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Alert } from 'react-native';
+import * as Clipboard from 'expo-clipboard';
 import { Stack } from 'expo-router';
 import { colors } from '../styles/commonStyles';
 import { IconSymbol } from '../components/IconSymbol';
@@ -25,13 +26,21 @@ export default function CredentialsScreen() {
     robotToken: 'Z_Rish7p16d6GhI1uJ3_fA7L0r52b3xV6UCg48_a'
   };
 
-  const copyToClipboard = (text: string, label: string) => {
-    Clipboard.setString(text);
-    Alert.alert('Copied!', `${label} copied to clipboard`);
+  const copyToClipboard = async (text: string, label: string) => {
+    try {
+      console.log('Copying to clipboard:', label);
+      await Clipboard.setStringAsync(text);
+      Alert.alert('Copied!', `${label} copied to clipboard`);
+    } catch (error) {
+      console.error('Error copying to clipboard:', error);
+      Alert.alert('Error', 'Failed to copy to clipboard');
+    }
   };
 
-  const copyAllCredentials = () => {
-    const allCreds = `APP STORE CONNECT:
+  const copyAllCredentials = async () => {
+    try {
+      console.log('Copying all credentials to clipboard');
+      const allCreds = `APP STORE CONNECT:
 API Key: ${credentials.appStoreConnect.apiKey}
 App Developer Team ID: ${credentials.appStoreConnect.appDeveloperTeamId}
 Developer ID: ${credentials.appStoreConnect.developerId}
@@ -47,8 +56,12 @@ Token: ${credentials.github.token}
 ROBOT TOKEN:
 ${credentials.robotToken}`;
 
-    Clipboard.setString(allCreds);
-    Alert.alert('Copied!', 'All credentials copied to clipboard');
+      await Clipboard.setStringAsync(allCreds);
+      Alert.alert('Copied!', 'All credentials copied to clipboard');
+    } catch (error) {
+      console.error('Error copying all credentials:', error);
+      Alert.alert('Error', 'Failed to copy to clipboard');
+    }
   };
 
   return (

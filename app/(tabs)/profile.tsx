@@ -37,6 +37,7 @@ export default function Profile() {
 
   const pickImage = async () => {
     try {
+      console.log('Pick profile image pressed');
       const permissionResult = await ImagePicker.requestMediaLibraryPermissionsAsync();
       
       if (permissionResult.granted === false) {
@@ -52,15 +53,17 @@ export default function Profile() {
       });
 
       if (!result.canceled && result.assets[0]) {
+        console.log('Profile image selected:', result.assets[0].uri);
         setProfileImage(result.assets[0].uri);
       }
     } catch (error) {
-      console.log('Error picking image:', error);
+      console.error('Error picking image:', error);
       Alert.alert('Error', 'Failed to pick image. Please try again.');
     }
   };
 
   const toggleDivision = (divisionId: ShootingDivision) => {
+    console.log('Division toggled:', divisionId);
     setSelectedDivisions(prev => {
       if (prev.includes(divisionId)) {
         return prev.filter(d => d !== divisionId);

@@ -70,8 +70,11 @@ export default function FloatingTabBar({
         score = 60;
       }
       // Check for partial matches in the route
-      else if (tab.route.includes('/(tabs)/') && pathname.includes(tab.route.split('/(tabs)/')[1])) {
-        score = 40;
+      else {
+        const routeStr = typeof tab.route === 'string' ? tab.route : '';
+        if (routeStr.includes('/(tabs)/') && pathname.includes(routeStr.split('/(tabs)/')[1])) {
+          score = 40;
+        }
       }
 
       if (score > bestMatchScore) {
@@ -174,14 +177,16 @@ export default function FloatingTabBar({
               const isActive = activeTabIndex === index;
 
               return (
-                <React.Fragment key={index}>
                 <TouchableOpacity
-                  key={index} // Use index as key
+                  key={tab.name}
                   style={styles.tab}
-                  onPress={() => handleTabPress(tab.route)}
+                  onPress={() => {
+                    console.log('Tab pressed:', tab.label);
+                    handleTabPress(tab.route);
+                  }}
                   activeOpacity={0.7}
                 >
-                  <View key={index} style={styles.tabContent}>
+                  <View style={styles.tabContent}>
                     <IconSymbol
                       android_material_icon_name={tab.icon}
                       ios_icon_name={tab.icon}
@@ -199,7 +204,6 @@ export default function FloatingTabBar({
                     </Text>
                   </View>
                 </TouchableOpacity>
-                </React.Fragment>
               );
             })}
           </View>

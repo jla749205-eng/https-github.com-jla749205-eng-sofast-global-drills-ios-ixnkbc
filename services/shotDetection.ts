@@ -1,6 +1,4 @@
 
-import { Audio } from 'expo-av';
-
 export interface ShotDetectionResult {
   timestamp: number;
   confidence: number;

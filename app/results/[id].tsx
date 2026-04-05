@@ -91,6 +91,7 @@ export default function ResultsScreen() {
 
   const handleUploadScore = async () => {
     try {
+      console.log('Upload score to leaderboard pressed');
       setIsUploading(true);
       
       const result: DrillResult = {
@@ -102,7 +103,7 @@ export default function ResultsScreen() {
         hits: shotCount,
         misses: (drill?.rounds || 0) - shotCount,
         score,
-        division: 'Open', // TODO: Let user select division
+        division: 'SSP', // Default division — TODO: Let user select division
         flinchDetected: flinchCount > 0,
         classification,
         hitFactor,

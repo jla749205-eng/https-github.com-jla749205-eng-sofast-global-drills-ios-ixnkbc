@@ -10,7 +10,7 @@ import { SubscriptionService } from '@/services/subscriptionService';
 export default function HomeScreen() {
   const router = useRouter();
   const [isPremium, setIsPremium] = useState(false);
-  const [isLoading, setIsLoading] = useState(true);
+  const [, setIsLoading] = useState(true);
 
   useEffect(() => {
     initializeSubscription();
@@ -30,6 +30,7 @@ export default function HomeScreen() {
   };
 
   const handleUpgrade = async () => {
+    console.log('Upgrade to Premium pressed');
     Alert.alert(
       'Upgrade to Premium',
       'Unlock all 10 drills, advanced AI analysis, and veteran badge for $4.99/month',
@@ -39,6 +40,7 @@ export default function HomeScreen() {
           text: 'Subscribe',
           onPress: async () => {
             try {
+              console.log('Subscribe button pressed');
               const subscriptionService = SubscriptionService.getInstance();
               const success = await subscriptionService.purchaseSubscription();
               if (success) {
@@ -57,6 +59,7 @@ export default function HomeScreen() {
 
   const handleWebsitePress = async () => {
     try {
+      console.log('Website link pressed');
       const url = 'https://tmsofast.com';
       const canOpen = await Linking.canOpenURL(url);
       if (canOpen) {
@@ -74,6 +77,7 @@ export default function HomeScreen() {
   const premiumDrills = DRILLS.filter(d => d.isPremium);
 
   const handleDrillPress = (drillId: string, isPremiumDrill: boolean) => {
+    console.log('Drill pressed:', drillId, 'isPremium:', isPremiumDrill);
     if (isPremiumDrill && !isPremium) {
       handleUpgrade();
       return;
@@ -223,7 +227,10 @@ export default function HomeScreen() {
         {/* Rankings Button */}
         <TouchableOpacity
           style={styles.rankingsButton}
-          onPress={() => router.push('/rankings/')}
+          onPress={() => {
+            console.log('View Global Rankings pressed');
+            router.push('/rankings/');
+          }}
           activeOpacity={0.8}
         >
           <View style={styles.rankingsButtonContent}>

@@ -11,6 +11,7 @@ export const colors = {
   accent: '#FACC15',          // Yellow, for highlights and important actions
   card: '#334155',            // Darker grayish-blue, for card backgrounds
   cardBackground: '#334155',  // Alias for card
+  surface: '#334155',         // Alias for card/surface backgrounds
   highlight: '#84CC16',       // Bright green, for selected elements
   border: '#475569',          // Border color
   backgroundAlt: '#2D3748',   // Alternative background color

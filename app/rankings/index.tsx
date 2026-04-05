@@ -253,7 +253,10 @@ export default function RankingsScreen() {
       <View style={styles.header}>
         <TouchableOpacity
           style={styles.backButton}
-          onPress={() => router.back()}
+          onPress={() => {
+            console.log('Rankings back button pressed');
+            router.back();
+          }}
         >
           <IconSymbol
             ios_icon_name="chevron.left"

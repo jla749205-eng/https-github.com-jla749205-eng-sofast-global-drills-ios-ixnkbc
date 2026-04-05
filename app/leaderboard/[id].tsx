@@ -13,7 +13,7 @@ export default function LeaderboardScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const drill = getDrillById(id);
   
-  const [selectedDivision, setSelectedDivision] = useState<Division>('Open');
+  const [selectedDivision, setSelectedDivision] = useState<Division>('SSP');
   const [leaderboard, setLeaderboard] = useState<LeaderboardEntry[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [pendingCount, setPendingCount] = useState(0);
@@ -53,7 +53,7 @@ export default function LeaderboardScreen() {
     }
   };
 
-  const divisions: Division[] = ['Open', 'Vet', 'LE'];
+  const divisions: Division[] = ['SSP', 'ESP', 'CCP'];
 
   return (
     <View style={styles.container}>

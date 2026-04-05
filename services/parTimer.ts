@@ -1,9 +1,12 @@
 
-import { Audio } from 'expo-av';
+// Par timer service — uses expo-haptics for reliable audio-free signaling
+// Haptics work on all iPhones without requiring audio files or permissions
+
+import * as Haptics from 'expo-haptics';
 
 export class ParTimer {
-  private alarmSound: Audio.Sound | null = null;
   private parTimeout: NodeJS.Timeout | null = null;
+  private beepInterval: NodeJS.Timeout | null = null;
   private isInitialized: boolean = false;
 
   async initialize() {
@@ -11,16 +14,7 @@ export class ParTimer {
       if (this.isInitialized) {
         return;
       }
-
-      console.log('ParTimer: Initializing smoke detector alarm sound');
-      
-      // Set audio mode for playback
-      await Audio.setAudioModeAsync({
-        playsInSilentModeIOS: true,
-        staysActiveInBackground: false,
-        shouldDuckAndroid: true,
-      });
-
+      console.log('ParTimer: Initializing');
       this.isInitialized = true;
       console.log('ParTimer: Initialized successfully');
     } catch (error) {
@@ -30,41 +24,16 @@ export class ParTimer {
 
   async playSmokeDetectorAlarm() {
     try {
-      console.log('ParTimer: Playing smoke detector alarm');
-      
-      // Create a high-pitched beep sound similar to a smoke detector
-      // Using a synthesized beep at 3000Hz (typical smoke detector frequency)
-      const { sound } = await Audio.Sound.createAsync(
-        {
-          uri: 'data:audio/wav;base64,UklGRiQAAABXQVZFZm10IBAAAAABAAEAQB8AAEAfAAABAAgAZGF0YQAAAAA=',
-        },
-        { 
-          shouldPlay: true,
-          volume: 1.0,
-        }
-      );
-      
-      // Play three rapid beeps like a smoke detector
-      sound.setOnPlaybackStatusUpdate(async (status) => {
-        if (status.isLoaded && status.didJustFinish) {
-          await sound.unloadAsync();
-        }
-      });
+      console.log('ParTimer: Playing smoke detector alarm (haptics)');
 
-      // Simulate smoke detector pattern: beep-beep-beep
+      // Three rapid heavy impacts like a smoke detector chirp
       for (let i = 0; i < 3; i++) {
-        const { sound: beep } = await Audio.Sound.createAsync(
-          {
-            uri: 'data:audio/wav;base64,UklGRiQAAABXQVZFZm10IBAAAAABAAEAQB8AAEAfAAABAAgAZGF0YQAAAAA=',
-          },
-          { 
-            shouldPlay: true,
-            volume: 1.0,
-          }
-        );
-        
-        await new Promise(resolve => setTimeout(resolve, 150));
-        await beep.unloadAsync();
+        try {
+          await Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning);
+          await new Promise(resolve => setTimeout(resolve, 150));
+        } catch (hapticError) {
+          console.error(`ParTimer: Haptic ${i + 1} failed:`, hapticError);
+        }
       }
 
       console.log('ParTimer: Smoke detector alarm played');
@@ -74,12 +43,12 @@ export class ParTimer {
   }
 
   async playStartAlarm() {
-    console.log('ParTimer: Playing start alarm (smoke detector sound)');
+    console.log('ParTimer: Playing start alarm');
     await this.playSmokeDetectorAlarm();
   }
 
   async playParAlarm() {
-    console.log('ParTimer: Playing par time alarm (smoke detector sound)');
+    console.log('ParTimer: Playing par time alarm');
     await this.playSmokeDetectorAlarm();
   }
 
@@ -92,7 +61,11 @@ export class ParTimer {
 
     this.parTimeout = setTimeout(async () => {
       console.log('ParTimer: Par time reached!');
-      await this.playParAlarm();
+      try {
+        await this.playParAlarm();
+      } catch (error) {
+        console.error('ParTimer: Error playing par alarm:', error);
+      }
       onParReached();
     }, parTimeSeconds * 1000);
   }
@@ -103,17 +76,15 @@ export class ParTimer {
       clearTimeout(this.parTimeout);
       this.parTimeout = null;
     }
+    if (this.beepInterval) {
+      clearInterval(this.beepInterval);
+      this.beepInterval = null;
+    }
   }
 
   cleanup() {
     console.log('ParTimer: Cleaning up');
     this.stopParTimer();
-    if (this.alarmSound) {
-      this.alarmSound.unloadAsync().catch(err => 
-        console.error('ParTimer: Error unloading sound:', err)
-      );
-      this.alarmSound = null;
-    }
     this.isInitialized = false;
   }
 }

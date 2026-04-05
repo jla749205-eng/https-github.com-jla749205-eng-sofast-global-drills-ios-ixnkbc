@@ -8,12 +8,22 @@ import { IconSymbol } from '../components/IconSymbol';
 export default function HelpGuide() {
   const router = useRouter();
 
-  const handleWebsitePress = () => {
-    Linking.openURL('https://tmsofast.com');
+  const handleWebsitePress = async () => {
+    try {
+      console.log('Help guide: website link pressed');
+      await Linking.openURL('https://tmsofast.com');
+    } catch (error) {
+      console.error('Help guide: error opening website:', error);
+    }
   };
 
-  const handleSupportPress = () => {
-    Linking.openURL('https://tmsofast.com/support');
+  const handleSupportPress = async () => {
+    try {
+      console.log('Help guide: support link pressed');
+      await Linking.openURL('https://tmsofast.com/support');
+    } catch (error) {
+      console.error('Help guide: error opening support URL:', error);
+    }
   };
 
   return (

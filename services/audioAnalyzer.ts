@@ -1,10 +1,18 @@
 
 // Audio analysis service for shot detection via microphone
+// Uses expo-audio (SDK 54+)
+//
+// ARCHITECTURE NOTE:
+// expo-audio's useAudioRecorder hook must be called inside a React component.
+// This service class operates in two modes:
+//   1. With recorder: caller passes a recorder created via useAudioRecorder()
+//   2. Without recorder: audio detection is disabled; shot detection falls back to gyroscope only.
+//
+// The camera screen currently uses mode 2 (gyro-only) which is safe and correct.
 
-import { Audio } from 'expo-av';
+import { AudioModule } from 'expo-audio';
 
 export class AudioAnalyzer {
-  private recording: Audio.Recording | null = null;
   private isAnalyzing = false;
   private analysisInterval: NodeJS.Timeout | null = null;
 
@@ -12,81 +20,66 @@ export class AudioAnalyzer {
     console.log('AudioAnalyzer initialized');
   }
 
-  async startAnalyzing(onLevelChange: (level: number) => void) {
+  /**
+   * Start analyzing audio levels. Calls onLevelChange with a 0-1 normalized level.
+   * NOTE: The caller may pass a recorder created via useAudioRecorder() hook.
+   * If no recorder is provided, audio detection is disabled and gyro-only mode is used.
+   */
+  async startAnalyzing(
+    onLevelChange: (level: number) => void,
+    recorder?: {
+      prepareToRecordAsync: (options: Record<string, unknown>) => Promise<void>;
+      record: () => void;
+      stop: () => Promise<void>;
+      metering?: number;
+      [key: string]: unknown;
+    }
+  ) {
     try {
       console.log('Starting audio analysis...');
-      
-      // Request permissions
-      const { status } = await Audio.requestPermissionsAsync();
-      if (status !== 'granted') {
-        console.error('Audio permission not granted');
+
+      // Request permissions via AudioModule imperative API
+      const status = await AudioModule.requestRecordingPermissionsAsync();
+      if (!status.granted) {
+        console.warn('AudioAnalyzer: Audio permission not granted — gyro-only mode');
         return;
       }
 
-      // Configure audio mode
-      await Audio.setAudioModeAsync({
-        allowsRecordingIOS: true,
-        playsInSilentModeIOS: true,
-      });
-
-      // Create recording
-      this.recording = new Audio.Recording();
-      
-      try {
-        await this.recording.prepareToRecordAsync({
-          ...Audio.RecordingOptionsPresets.HIGH_QUALITY,
-          android: {
-            extension: '.m4a',
-            outputFormat: Audio.AndroidOutputFormat.MPEG_4,
-            audioEncoder: Audio.AndroidAudioEncoder.AAC,
-            sampleRate: 44100,
-            numberOfChannels: 2,
-            bitRate: 128000,
-          },
-          ios: {
-            extension: '.m4a',
-            outputFormat: Audio.IOSOutputFormat.MPEG4AAC,
-            audioQuality: Audio.IOSAudioQuality.HIGH,
-            sampleRate: 44100,
-            numberOfChannels: 2,
-            bitRate: 128000,
-            linearPCMBitDepth: 16,
-            linearPCMIsBigEndian: false,
-            linearPCMIsFloat: false,
-          },
-          web: {
-            mimeType: 'audio/webm',
-            bitsPerSecond: 128000,
-          },
-        });
-
-        await this.recording.startAsync();
+      if (recorder) {
         this.isAnalyzing = true;
+        try {
+          await recorder.prepareToRecordAsync({ isMeteringEnabled: true });
+          recorder.record();
 
-        // Poll audio levels
-        this.analysisInterval = setInterval(async () => {
-          if (this.recording && this.isAnalyzing) {
-            try {
-              const status = await this.recording.getStatusAsync();
-              if (status.isRecording && status.metering !== undefined) {
-                // Normalize metering value (typically -160 to 0 dB)
-                // Convert to 0-1 range
-                const normalizedLevel = Math.max(0, Math.min(1, (status.metering + 160) / 160));
-                onLevelChange(normalizedLevel);
+          // Poll metering every 50ms
+          this.analysisInterval = setInterval(() => {
+            if (this.isAnalyzing && recorder) {
+              try {
+                const metering = recorder.metering as number | undefined;
+                if (metering !== undefined) {
+                  // Normalize from dB range (-160 to 0) to 0-1
+                  const normalizedLevel = Math.max(0, Math.min(1, (metering + 160) / 160));
+                  onLevelChange(normalizedLevel);
+                }
+              } catch (error) {
+                console.error('AudioAnalyzer: Error reading metering:', error);
               }
-            } catch (error) {
-              console.error('Error getting recording status:', error);
             }
-          }
-        }, 50); // Check every 50ms
+          }, 50);
 
-        console.log('Audio analysis started successfully');
-      } catch (error) {
-        console.error('Error preparing/starting recording:', error);
+          console.log('Audio analysis started successfully');
+        } catch (error) {
+          console.error('AudioAnalyzer: Error preparing/starting recording:', error);
+          this.isAnalyzing = false;
+        }
+      } else {
+        // No recorder provided — analysis runs in permission-only mode
+        // Shot detection will rely on gyroscope only
+        console.warn('AudioAnalyzer: no recorder provided, audio detection disabled — gyro-only mode');
         this.isAnalyzing = false;
       }
     } catch (error) {
-      console.error('Error starting audio analysis:', error);
+      console.error('AudioAnalyzer: Error starting audio analysis:', error);
       this.isAnalyzing = false;
     }
   }
@@ -101,21 +94,9 @@ export class AudioAnalyzer {
         this.analysisInterval = null;
       }
 
-      if (this.recording) {
-        try {
-          const status = await this.recording.getStatusAsync();
-          if (status.isRecording) {
-            await this.recording.stopAndUnloadAsync();
-          }
-        } catch (error) {
-          console.error('Error stopping recording:', error);
-        }
-        this.recording = null;
-      }
-
       console.log('Audio analysis stopped');
     } catch (error) {
-      console.error('Error in stopAnalyzing:', error);
+      console.error('AudioAnalyzer: Error in stopAnalyzing:', error);
     }
   }
 
